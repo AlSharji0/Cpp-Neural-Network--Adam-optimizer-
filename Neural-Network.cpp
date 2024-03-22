@@ -7,7 +7,7 @@
 using dmatrix = std::vector<std::vector<double>>;
 using drow = std::vector<double>;
 
-double random(const double& min, const double& max) {
+double random(const double& min, const double& max){
     std::mt19937_64 rng{}; rng.seed(std::random_device{}());
     return std::uniform_real_distribution<>{min, max}(rng);
 }
@@ -23,7 +23,7 @@ dmatrix T(const dmatrix& m) noexcept {
 }
 
 //Matrix multiplication
-dmatrix operator*(const dmatrix& m1, const dmatrix& m2) noexcept {
+dmatrix operator*(const dmatrix& m1, const dmatrix& m2) noexcept{
     dmatrix m3 = T(m2);
     dmatrix result;
     for (size_t i=0; i<m1.size(); i++){
@@ -34,4 +34,15 @@ dmatrix operator*(const dmatrix& m1, const dmatrix& m2) noexcept {
         }
     }
     return result;
+}
+
+//Matrix addition
+dmatrix operator+ (const dmatrix& m, const drow& drow) noexcept{
+    dmatrix result{};
+    for(size_t i=0; i<m.size(); i++){
+        result.push_back({});
+        for(size_t j=0; j<m[0].size(); j++){
+            result[i].push_back(m[i][j] + drow[i]);
+        }
+    }
 }
