@@ -21,3 +21,17 @@ dmatrix T(const dmatrix& m) noexcept {
     }
     return mat;  
 }
+
+//Matrix multiplication
+dmatrix operator*(const dmatrix& m1, const dmatrix& m2) noexcept {
+    dmatrix m3 = T(m2);
+    dmatrix result;
+    for (size_t i=0; i<m1.size(); i++){
+        for (size_t j=0; j<m3.size(); j++){
+            double dot_product = 0.0;
+            for(size_t k=0; k<m3[0].size(); k++) dot_product += m1[i][j] * m3[j][k];
+            result[i].push_back(dot_product);
+        }
+    }
+    return result;
+}
