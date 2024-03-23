@@ -2,7 +2,9 @@
 #include <vector>
 #include <random>
 #include <numeric>
-#include <ctime>
+#include <algorithm>
+#include <cmath>
+#include <iomanip>
 
 using dmatrix = std::vector<std::vector<double>>;
 using drow = std::vector<double>;
@@ -76,3 +78,11 @@ class DenseLayer {
         }
 };
 
+struct relu_activation{
+    dmatrix operator()(const dmatrix& inputs){
+        dmatrix output(inputs.size(), drow(inputs[0].size(), 0));
+        for(size_t i=0; i<inputs.size(); i++){
+            for(size_t j=0; j<inputs[0].size(); j++) output[i][j] = std::max(0., inputs[i][j]);
+        } return output;
+    }
+};
