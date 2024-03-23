@@ -46,3 +46,25 @@ dmatrix operator+ (const dmatrix& m, const drow& drow) noexcept{
         }
     }
 }
+
+//Output
+std::ostream& operator<<(std::ostream& os,const dmatrix& dm) noexcept {
+    for(auto& row : dm){
+        for(auto& item : row)
+            os << item << " ";
+        os << "\n";
+    }return os;
+}
+
+
+class DenseLayer {
+    private:
+        dmatrix m_weights, m_outputs;
+        drow biases;
+    public:
+        DenseLayer(const size_t& n_inputs, const size_t& n_neurons) : m_weights(n_inputs, drow(n_neurons)), biases(n_neurons, 0) {
+            for(size_t i=0; i<n_inputs; i++){
+                for(size_t j=0; j<n_neurons; j++) m_weights[i][j] = random(-1., 1.);
+            }
+        }
+};
