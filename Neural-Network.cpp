@@ -50,8 +50,7 @@ dmatrix operator+ (const dmatrix& m, const drow& drow) noexcept{
 //Output
 std::ostream& operator<<(std::ostream& os,const dmatrix& dm) noexcept {
     for(auto& row : dm){
-        for(auto& item : row)
-            os << item << " ";
+        for(auto& item : row) os << item << " ";
         os << "\n";
     }return os;
 }
