@@ -66,4 +66,13 @@ class DenseLayer {
                 for(size_t j=0; j<n_neurons; j++) m_weights[i][j] = random(-1., 1.);
             }
         }
+        //Forward Pass
+        void forward(const dmatrix& inputs){
+            m_outputs = (inputs * m_weights) + biases;
+        }
+
+        dmatrix output() const{
+            return m_outputs;
+        }
 };
+
