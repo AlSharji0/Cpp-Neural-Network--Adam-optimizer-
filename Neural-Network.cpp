@@ -14,7 +14,7 @@ double random(const double& min, const double& max){
     return std::uniform_real_distribution<>{min, max}(rng);
 }
 
-//Transpose matrix func 
+// Transpose matrix func 
 dmatrix T(const dmatrix& m) noexcept {
     dmatrix mat;
     for(size_t i = 0; i < m[0].size(); i++){
@@ -24,7 +24,7 @@ dmatrix T(const dmatrix& m) noexcept {
     return mat;  
 }
 
-//Matrix multiplication
+// Matrix multiplication
 dmatrix operator*(const dmatrix& m1, const dmatrix& m2) noexcept{
     dmatrix m3 = T(m2);
     dmatrix result;
@@ -38,7 +38,7 @@ dmatrix operator*(const dmatrix& m1, const dmatrix& m2) noexcept{
     return result;
 }
 
-//Matrix addition
+// Matrix addition
 dmatrix operator+ (const dmatrix& m, const drow& drow) noexcept{
     dmatrix result{};
     for(size_t i=0; i<m.size(); i++){
@@ -49,7 +49,7 @@ dmatrix operator+ (const dmatrix& m, const drow& drow) noexcept{
     }
 }
 
-//Output
+// Output
 std::ostream& operator<<(std::ostream& os,const dmatrix& dm) noexcept {
     for(auto& row : dm){
         for(auto& item : row) os << item << " ";
@@ -97,11 +97,30 @@ public:
             double max_val = *std::max_element(inputs[i].begin(), inputs[i].end());
             double exp_sum = 0.;
             for(size_t j=0; j<inputs[0].size(); j++){
-                double exp_val = std::exp(inputs[i][j]-max_val);
+                double exp_val = std::exp(inputs[i][j] - max_val);
                 output[i][j] = exp_val;
                 exp_sum += exp_val;
             }
             for(size_t j=0; j<inputs[0].size(); j++) output[i][j] /= exp_sum;
         }
+    }
+};
+
+// Clip softmax output values
+void clipMatrix(dmatrix& input, double min, double max){
+    for(size_t i=0; i<input.size(); i++){
+        for(size_t j=0; j<input[0].size(); j++) input[i][j] = std::max(min, std::min(input[i][j], max));
+    }
+}
+
+class Loss_categoricalCrossentropy{
+private:
+    dmatrix pclipped;
+    drow nlogp;
+public:
+    drow forward(dmatrix& predictions, const drow& ytrue){
+        clipMatrix(predictions, 1e-7, 1. - 1e-7);
+        for(size_t i=0; i<pclipped.size(); i++) nlogp.push_back(-std::log(pclipped[i][ytrue[i]]));
+        return nlogp;
     }
 };
