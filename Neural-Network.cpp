@@ -113,7 +113,18 @@ void clipMatrix(dmatrix& input, double min, double max){
     }
 }
 
-class Loss_categoricalCrossentropy{
+struct loss{
+    virtual drow forward(dmatrix& predictions, const drow& ytrue) = 0;
+    double calculate_data_loss(dmatrix& output, const drow& y){
+        drow sample_loss = forward(output, y);
+        double total_loss =0.;
+        for(double loss:sample_loss) total_loss += loss;
+        double average_loss = total_loss / sample_loss.size();
+        return average_loss;
+    }
+};
+
+class Loss_categoricalCrossentropy: public loss {
 private:
     dmatrix pclipped;
     drow nlogp;
