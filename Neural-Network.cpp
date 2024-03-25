@@ -143,11 +143,11 @@ public:
             nlogp[i] = -std::log(nlogp[i]);
         } return nlogp;
     }
-    dmatrix backward(const drow& dvalues, const drow& ytrue){
+    drow backward(const drow& dvalues, const drow& ytrue){
             size_t samples = dvalues.size();
             for(size_t i=0; i<samples; i++){
                 dinputs.push_back(-ytrue[i]/dvalues[i]);
                 dinputs[i] = dinputs[i]/samples;
-            }
+            } return dinputs;
         }
 };
