@@ -126,12 +126,28 @@ struct loss{
 
 class Loss_categoricalCrossentropy: public loss {
 private:
-    dmatrix pclipped;
+    dmatrix correctp;
     drow nlogp;
+    dmatrix inputs;
+    size_t samples;
+    size_t labels;
+    drow dinputs;
 public:
     drow forward(dmatrix& predictions, const drow& ytrue){
         clipMatrix(predictions, 1e-7, 1. - 1e-7);
-        for(size_t i=0; i<pclipped.size(); i++) nlogp.push_back(-std::log(pclipped[i][ytrue[i]]));
-        return nlogp;
+        
+        for(size_t i=0; i<predictions.size(); i++){
+            correctp.push_back({});
+            for(size_t j=0; j<predictions[0].size(); j++) correctp[i].push_back(predictions[i][j] * ytrue[j]);
+            nlogp[i] = std::accumulate(correctp[i].begin(), correctp[i].end(), 0.);
+            nlogp[i] = -std::log(nlogp[i]);
+        } return nlogp;
     }
+    dmatrix backward(const drow& dvalues, const drow& ytrue){
+            size_t samples = dvalues.size();
+            for(size_t i=0; i<samples; i++){
+                dinputs.push_back(-ytrue[i]/dvalues[i]);
+                dinputs[i] = dinputs[i]/samples;
+            }
+        }
 };
