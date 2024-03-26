@@ -69,6 +69,7 @@ class DenseLayer {
 private:
     dmatrix m_weights, m_outputs;
     drow biases;
+    dmatrix m_inputs;
 public:
     DenseLayer(const size_t& n_inputs, const size_t& n_neurons) : m_weights(n_inputs, drow(n_neurons)), biases(n_neurons, 0) {
         for(size_t i=0; i<n_inputs; i++){
@@ -76,8 +77,15 @@ public:
         }
     }
     dmatrix forward(const dmatrix& inputs){
+        m_inputs = inputs;
         m_outputs = (inputs * m_weights) + biases;
         return m_outputs;
+    }
+
+    dmatrix backward(const dmatrix& dvalue){
+        dmatrix dweights = T(m_inputs) * dvalue;
+        dmatrix dinputs = T(m_weights) * dvalue;
+        drow dbiases = std::accumulate(dvalue.begin(), dvalue.end(), drow(dvalue[0].size(), 0));
     }
 };
 
