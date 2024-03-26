@@ -82,7 +82,7 @@ public:
         return m_outputs;
     }
 
-    dmatrix backward(const dmatrix& dvalue){
+    void backward(const dmatrix& dvalue){
         dmatrix dweights = T(m_inputs) * dvalue;
         dmatrix dinputs = T(m_weights) * dvalue;
         drow dbiases = std::accumulate(dvalue.begin(), dvalue.end(), drow(dvalue[0].size(), 0));
