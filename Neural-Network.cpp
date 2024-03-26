@@ -57,6 +57,13 @@ std::ostream& operator<<(std::ostream& os,const dmatrix& dm) noexcept {
     }return os;
 }
 
+//For jacobian matrix (Kronecker delta)
+dmatrix eye(int n){
+    dmatrix identity(n, drow(n, 0.));
+    for(size_t i=0; i<n; i++){
+        identity[i][i]=1.;
+    } return identity;
+}
 
 class DenseLayer {
 private:
@@ -77,6 +84,7 @@ public:
 class ReluActivation{
 private:
     dmatrix output;
+    dmatrix dinputs;
 public:
     dmatrix forward(const dmatrix& inputs) {
         output = dmatrix(inputs.size(), drow(inputs[0].size(), 0.));
@@ -84,12 +92,24 @@ public:
             for(size_t j = 0; j < inputs[0].size(); j++) output[i][j] = std::max(0., inputs[i][j]);
         }return output;
     }
+    dmatrix backward(const dmatrix& dvalue){
+        dinputs = dmatrix(output.size(), drow(output[0].size(), 0.));
+        for(size_t i=0; i<dvalue.size(); i++){
+            for(size_t j=0; j<dvalue[0].size(); j++){
+                if(output[i][j] <= 0) dinputs[i][j] = 0;
+                else dinputs[i][j] = dvalue[i][j];
+            }
+        } return dinputs;
+    }
 };
 
 
 class SoftMaxActivation{
 private:
     dmatrix output;
+    dmatrix dinputs;
+    dmatrix kdelta;
+    dmatrix jacobian;
 public:
     dmatrix forward(const dmatrix& inputs){
         output = dmatrix(inputs.size(), drow(inputs[0].size(), 0.));
@@ -102,8 +122,21 @@ public:
                 exp_sum += exp_val;
             }
             for(size_t j=0; j<inputs[0].size(); j++) output[i][j] /= exp_sum;
-        }
+        } return output;
     }
+    dmatrix backward(drow& dvalues){
+        kdelta = eye(dinputs.size());
+        dinputs = dmatrix(dvalues.size(), drow(dvalues.size(), 0.));
+        jacobian = dmatrix(dvalues.size(), drow(dvalues.size(), 0.));
+        for(size_t i=0; i<dinputs.size(); i++){
+            for(size_t j=0; j<dinputs[0].size(); j++){
+                kdelta[i][j] = kdelta[i][j] * output[i][j];
+                jacobian[i][j] = kdelta[i][j] - (output[i][j] * output[i][j]);
+                dinputs[i][j] = jacobian[i][j] * dvalues[j];
+            }
+        } return dinputs;
+    }
+    
 };
 
 // Clip softmax output values
@@ -135,7 +168,6 @@ private:
 public:
     drow forward(dmatrix& predictions, const drow& ytrue){
         clipMatrix(predictions, 1e-7, 1. - 1e-7);
-        
         for(size_t i=0; i<predictions.size(); i++){
             correctp.push_back({});
             for(size_t j=0; j<predictions[0].size(); j++) correctp[i].push_back(predictions[i][j] * ytrue[j]);
