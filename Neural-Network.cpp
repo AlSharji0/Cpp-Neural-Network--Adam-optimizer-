@@ -65,12 +65,18 @@ dmatrix eye(int n){
     } return identity;
 }
 
-class DenseLayer {
-private:
+struct DenseLayer {
+    dmatrix weight_momentums;
+    dmatrix weight_cache;
+    drow bias_momentums;
+    drow bias_cache;
     dmatrix m_weights, m_outputs;
     drow biases;
     dmatrix m_inputs;
-public:
+    dmatrix dweights;
+    dmatrix dinputs;
+    drow dbiases;
+
     DenseLayer(const size_t& n_inputs, const size_t& n_neurons) : m_weights(n_inputs, drow(n_neurons)), biases(n_neurons, 0) {
         for(size_t i=0; i<n_inputs; i++){
             for(size_t j=0; j<n_neurons; j++) m_weights[i][j] = random(-1., 1.);
@@ -83,9 +89,17 @@ public:
     }
 
     void backward(const dmatrix& dvalue){
-        dmatrix dweights = T(m_inputs) * dvalue;
-        dmatrix dinputs = T(m_weights) * dvalue;
-        drow dbiases = std::accumulate(dvalue.begin(), dvalue.end(), drow(dvalue[0].size(), 0));
+        dweights = T(m_inputs) * dvalue;
+        dinputs = T(m_weights) * dvalue;
+        dbiases = std::accumulate(dvalue.begin(), dvalue.end(), drow(dvalue[0].size(), 0));
+    }
+
+    // Helper function for optimizer
+    void initialize_momentum_cache(){
+        weight_momentums.resize(m_weights[0].size(), drow(m_weights[0].size(), 0.));
+        weight_cache.resize(m_weights[0].size(), drow(m_weights[0].size(), 0.));
+        bias_momentums.resize(m_weights[0].size(), drow(m_weights[0].size(), 0.));
+        bias_cache.resize(m_weights[0].size(), drow(m_weights[0].size(), 0.));
     }
 };
 
@@ -190,4 +204,46 @@ public:
                 dinputs[i] = dinputs[i]/samples;
             } return dinputs;
         }
+};
+
+class AdamOptimizer{
+private:
+    double learning_rate = 0.001;
+    double current_learning_rate;
+    double decay = 0.;
+    int iterations;
+    double epsilon = 1e-7;
+    double beta_1 = 0.9;
+    double beta_2 = 0.999;
+    dmatrix weight_momentums_corrected;
+    drow bias_momentums_corrected;
+    dmatrix weight_cache_corrected;
+    drow bias_cache_corrected;    
+
+public:
+    void pre_update(){
+        if(decay) current_learning_rate = learning_rate * (1. / (1. + decay * iterations));
+    }
+
+    void update(DenseLayer& DenseLayer){
+        if(DenseLayer.weight_cache.empty()) DenseLayer.initialize_momentum_cache();
+        for(size_t i=0; i<DenseLayer.m_weights.size(); i++){
+            for(size_t j=0; j<DenseLayer.m_weights[0].size(); j++){
+                DenseLayer.weight_momentums[i][j] = beta_1 * DenseLayer.weight_momentums[i][j] + (1 - beta_1) * DenseLayer.dweights[i][j];
+                DenseLayer.bias_momentums[i] = beta_1 * DenseLayer.bias_momentums[i] + (1 - beta_1) * DenseLayer.bias_momentums[i];
+                weight_momentums_corrected[i][j] = DenseLayer.weight_momentums[i][j] / (1 - std::pow(beta_1, iterations+1));
+                bias_momentums_corrected[i] = DenseLayer.bias_momentums[i] / (1 - std::pow(beta_1, iterations+1));
+                DenseLayer.weight_cache[i][j] = beta_2 * DenseLayer.weight_cache[i][j] + (1 - beta_2) * std::pow(DenseLayer.dweights[i][j], 2);
+                DenseLayer.bias_cache[i] = beta_2 * DenseLayer.bias_cache[i] + (1 - beta_2) * std::pow(DenseLayer.dbiases[i], 2);
+                weight_cache_corrected[i][j] = DenseLayer.weight_cache[i][j] / (1 - std::pow(beta_2, iterations+1));
+                bias_cache_corrected[i] = DenseLayer.bias_cache[i] / (1 - std::pow(beta_2, iterations + 1));
+                DenseLayer.m_weights[i][j] += -current_learning_rate * weight_cache_corrected[i][j] / (std::sqrt(weight_cache_corrected[i][j]) + epsilon);
+                DenseLayer.biases[i] += -current_learning_rate * bias_momentums_corrected[i] / (std::sqrt(bias_momentums_corrected[i]) + epsilon);
+            }
+        }
+    }
+
+    void post_update(){
+        iterations += 1;
+    }
 };
