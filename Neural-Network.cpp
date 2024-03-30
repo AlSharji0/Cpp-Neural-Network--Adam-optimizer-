@@ -14,6 +14,26 @@ double random(const double& min, const double& max){
     return std::uniform_real_distribution<>{min, max}(rng);
 }
 
+dmatrix generateSpiralData(int samples_per_class, int classes) {
+    dmatrix data;
+    double delta_theta = 2.0 * M_PI / classes;
+
+    for (int c = 0; c < classes; c++){
+        dmatrix spiral_class;
+        double r = 0.0;
+        double theta = delta_theta * c;
+        for (int i = 0; i < samples_per_class; ++i) {
+            double dr = 5.0 * (1.0 * i / samples_per_class);
+            double x = r * cos(theta);
+            double y = r * sin(theta);
+            spiral_class.push_back({x, y});
+            r += dr;
+            theta += 0.5;
+        }
+        data.insert(data.end(), spiral_class.begin(), spiral_class.end());
+    } return data;
+}
+
 // Transpose matrix func 
 dmatrix T(const dmatrix& m) noexcept {
     dmatrix mat;
@@ -39,12 +59,12 @@ dmatrix operator*(const dmatrix& m1, const dmatrix& m2) noexcept{
 }
 
 // Matrix addition
-dmatrix operator+ (const dmatrix& m, const drow& drow) noexcept{
+dmatrix operator+ (const dmatrix& m, const drow& row) noexcept{
     dmatrix result{};
     for(size_t i=0; i<m.size(); i++){
         result.push_back({});
         for(size_t j=0; j<m[0].size(); j++){
-            result[i].push_back(m[i][j] + drow[i]);
+            result[i].push_back(m[i][j] + row[i]);
         }
     } return result;
 }
@@ -58,7 +78,7 @@ std::ostream& operator<<(std::ostream& os,const dmatrix& dm) noexcept {
 }
 
 //For jacobian matrix (Kronecker delta)
-dmatrix eye(int n){
+dmatrix eye(size_t n){
     dmatrix identity(n, drow(n, 0.));
     for(size_t i=0; i<n; i++){
         identity[i][i]=1.;
@@ -88,10 +108,16 @@ struct DenseLayer {
         return m_outputs;
     }
 
-    void backward(const dmatrix& dvalue){
+    dmatrix backward(const dmatrix& dvalue){
         dweights = T(m_inputs) * dvalue;
         dinputs = T(m_weights) * dvalue;
-        dbiases = std::accumulate(dvalue.begin(), dvalue.end(), drow(dvalue[0].size(), 0));
+        dbiases = std::accumulate(dvalue.begin(), dvalue.end(), drow(dvalue[0].size(), 0),
+    [](const drow& acc, const drow& val) {
+        drow result;
+        std::transform(acc.begin(), acc.end(), val.begin(), std::back_inserter(result), std::plus<double>());
+        return result;
+    });
+        return dinputs;
     }
 
     // Helper function for optimizer
@@ -133,7 +159,7 @@ private:
     dmatrix kdelta;
     dmatrix jacobian;
 public:
-    dmatrix& forward(const dmatrix& inputs){
+    dmatrix forward(const dmatrix& inputs){
         output = dmatrix(inputs.size(), drow(inputs[0].size(), 0.));
         for(size_t i=0; i<inputs.size(); i++){
             double max_val = *std::max_element(inputs[i].begin(), inputs[i].end());
@@ -146,7 +172,7 @@ public:
             for(size_t j=0; j<inputs[0].size(); j++) output[i][j] /= exp_sum;
         } return output;
     }
-    dmatrix backward(const drow& dvalues){
+    dmatrix backward(const dmatrix& dvalues){
         kdelta = eye(dinputs.size());
         dinputs = dmatrix(dvalues.size(), drow(dvalues.size(), 0.));
         jacobian = dmatrix(dvalues.size(), drow(dvalues.size(), 0.));
@@ -154,7 +180,7 @@ public:
             for(size_t j=0; j<dinputs[0].size(); j++){
                 kdelta[i][j] = kdelta[i][j] * output[i][j];
                 jacobian[i][j] = kdelta[i][j] - (output[i][j] * output[i][j]);
-                dinputs[i][j] = jacobian[i][j] * dvalues[j];
+                dinputs[i][j] = jacobian[i][j] * dvalues[i][j];
             }
         } return dinputs;
     }
@@ -169,8 +195,8 @@ void clipMatrix(dmatrix& input, double min, double max){
 }
 
 struct loss{
-    virtual drow forward(dmatrix& predictions, const drow& ytrue) = 0;
-    double calculate_data_loss(dmatrix& output, const drow& y){
+    virtual drow forward(dmatrix& predictions, const dmatrix& ytrue) = 0;
+    double calculate_data_loss(dmatrix& output, const dmatrix& y){
         drow sample_loss = forward(output, y);
         double total_loss =0.;
         for(double loss:sample_loss) total_loss += loss;
@@ -186,22 +212,23 @@ private:
     dmatrix inputs;
     size_t samples;
     size_t labels;
-    drow dinputs;
+    dmatrix dinputs;
 public:
-    drow forward(dmatrix& predictions, const drow& ytrue){
+    drow forward(dmatrix& predictions, const dmatrix& ytrue){
         clipMatrix(predictions, 1e-7, 1. - 1e-7);
         for(size_t i=0; i<predictions.size(); i++){
             correctp.push_back({});
-            for(size_t j=0; j<predictions[0].size(); j++) correctp[i].push_back(predictions[i][j] * ytrue[j]);
+            for(size_t j=0; j<predictions[0].size(); j++) correctp[i].push_back(predictions[i][j] * ytrue[i][j]);
             nlogp[i] = std::accumulate(correctp[i].begin(), correctp[i].end(), 0.);
             nlogp[i] = -std::log(nlogp[i]);
         } return nlogp;
     }
-    drow backward(const drow& dvalues, const drow& ytrue){
+    dmatrix backward(const dmatrix& dvalues, const dmatrix& ytrue){
             size_t samples = dvalues.size();
             for(size_t i=0; i<samples; i++){
-                dinputs.push_back(-ytrue[i]/dvalues[i]);
-                dinputs[i] = dinputs[i]/samples;
+                for(size_t j=0; j<ytrue[0].size(); j++) dinputs[i].push_back(-ytrue[i][j] / dvalues[i][j]);
+                double sum = std::accumulate(dinputs[i].begin(), dinputs[i].end(), 0.0);
+                for(size_t j=0; j<dinputs[0].size(); j++) dinputs[i].push_back(dinputs[i][j] / samples);
             } return dinputs;
         }
 };
@@ -248,17 +275,55 @@ public:
     }
 };
 
-class Activation_SLC{
-private:
-    SoftMaxActivation actv;
-    Loss_categoricalCrossentropy loss;
-    dmatrix output;
-public:
-    double forward(dmatrix& inputs, const drow& ytrue){
-        return loss.calculate_data_loss(actv.forward(inputs), ytrue);
-    }
-    dmatrix backward(const drow& dvalues, const drow& ytrue){
-        return actv.backward(loss.backward(dvalues, ytrue));
-    }
-};
+int main() {
+    // Generate data
+    dmatrix data = generateSpiralData(100, 3);
 
+    // Extract features and labels
+    dmatrix X, y;
+    for (size_t i = 0; i < data.size(); ++i) {
+        if (i % 2 == 0) {
+            X.push_back(data[i]);
+        } else {
+            y.push_back(data[i]);
+        }
+    }
+
+    // Convert labels to one-hot encoding
+    dmatrix y_true;
+    for (size_t i = 0; i < y.size(); ++i) {
+        drow one_hot(3, 0.0);
+        int label = static_cast<int>(y[i][0]);
+        one_hot[label] = 1.0;
+        y_true.push_back(one_hot);
+    }
+
+    // Initialize Neural Network layers
+    DenseLayer layer1(2, 64);
+    ReluActivation activation1;
+    DenseLayer layer2(64, 3);
+    SoftMaxActivation activation2;
+    Loss_categoricalCrossentropy loss;
+    dmatrix dvalue = activation2.forward(layer2.forward(activation1.forward(layer1.forward(X))));
+
+    // Train the neural network
+    int epochs = 1000;
+    for (int epoch = 0; epoch < epochs; ++epoch) {
+        // Forward pass
+        double current_loss = loss.calculate_data_loss(dvalue, y_true);
+        if (epoch % 100 == 0) {
+            std::cout << "Epoch " << epoch << ", Loss: " << current_loss << std::endl;
+        }
+
+        // Backward pass
+        dmatrix dvalues = loss.backward(dvalue, y_true);
+        layer1.backward(activation1.backward(layer2.backward(activation1.backward(activation2.backward(dvalue)))));
+
+        // Update weights and biases
+        AdamOptimizer optimizer;
+        optimizer.pre_update();
+        optimizer.update(layer1);
+        optimizer.update(layer2);
+        optimizer.post_update();
+    }
+}
