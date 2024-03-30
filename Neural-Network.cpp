@@ -133,7 +133,7 @@ private:
     dmatrix kdelta;
     dmatrix jacobian;
 public:
-    dmatrix forward(const dmatrix& inputs){
+    dmatrix& forward(const dmatrix& inputs){
         output = dmatrix(inputs.size(), drow(inputs[0].size(), 0.));
         for(size_t i=0; i<inputs.size(); i++){
             double max_val = *std::max_element(inputs[i].begin(), inputs[i].end());
@@ -146,7 +146,7 @@ public:
             for(size_t j=0; j<inputs[0].size(); j++) output[i][j] /= exp_sum;
         } return output;
     }
-    dmatrix backward(drow& dvalues){
+    dmatrix backward(const drow& dvalues){
         kdelta = eye(dinputs.size());
         dinputs = dmatrix(dvalues.size(), drow(dvalues.size(), 0.));
         jacobian = dmatrix(dvalues.size(), drow(dvalues.size(), 0.));
@@ -247,3 +247,18 @@ public:
         iterations += 1;
     }
 };
+
+class Activation_SLC{
+private:
+    SoftMaxActivation actv;
+    Loss_categoricalCrossentropy loss;
+    dmatrix output;
+public:
+    double forward(dmatrix& inputs, const drow& ytrue){
+        return loss.calculate_data_loss(actv.forward(inputs), ytrue);
+    }
+    dmatrix backward(const drow& dvalues, const drow& ytrue){
+        return actv.backward(loss.backward(dvalues, ytrue));
+    }
+};
+
