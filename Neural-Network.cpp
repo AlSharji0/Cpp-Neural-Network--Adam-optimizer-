@@ -14,26 +14,6 @@ double random(const double& min, const double& max){
     return std::uniform_real_distribution<>{min, max}(rng);
 }
 
-dmatrix generateSpiralData(int samples_per_class, int classes) {
-    dmatrix data;
-    double delta_theta = 2.0 * M_PI / classes;
-
-    for (int c = 0; c < classes; c++){
-        dmatrix spiral_class;
-        double r = 0.0;
-        double theta = delta_theta * c;
-        for (int i = 0; i < samples_per_class; ++i) {
-            double dr = 5.0 * (1.0 * i / samples_per_class);
-            double x = r * cos(theta);
-            double y = r * sin(theta);
-            spiral_class.push_back({x, y});
-            r += dr;
-            theta += 0.5;
-        }
-        data.insert(data.end(), spiral_class.begin(), spiral_class.end());
-    } return data;
-}
-
 // Transpose matrix func 
 dmatrix T(const dmatrix& m) noexcept {
     dmatrix mat;
