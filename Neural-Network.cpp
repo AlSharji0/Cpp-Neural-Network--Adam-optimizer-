@@ -14,6 +14,11 @@ double random(const double& min, const double& max){
     return std::uniform_real_distribution<>{min, max}(rng);
 }
 
+struct DataPoint {
+    drow features;
+    drow label;
+};
+
 // Transpose matrix func 
 dmatrix T(const dmatrix& m) noexcept {
     dmatrix mat;
@@ -256,19 +261,6 @@ public:
 };
 
 int main() {
-    // Generate data
-    dmatrix data = generateSpiralData(100, 3);
-
-    // Extract features and labels
-    dmatrix X, y;
-    for (size_t i = 0; i < data.size(); ++i) {
-        if (i % 2 == 0) {
-            X.push_back(data[i]);
-        } else {
-            y.push_back(data[i]);
-        }
-    }
-
     // Convert labels to one-hot encoding
     dmatrix y_true;
     for (size_t i = 0; i < y.size(); ++i) {
