@@ -276,6 +276,8 @@ int main() {
     DenseLayer layer2(64, 3);
     SoftMaxActivation activation2;
     Loss_categoricalCrossentropy loss;
+
+    // forward
     dmatrix dvalue = activation2.forward(layer2.forward(activation1.forward(layer1.forward(X))));
 
     // Train the neural network
@@ -289,7 +291,7 @@ int main() {
 
         // Backward pass
         dmatrix dvalues = loss.backward(dvalue, y_true);
-        layer1.backward(activation1.backward(layer2.backward(activation1.backward(activation2.backward(dvalue)))));
+        layer1.backward(activation1.backward(layer2.backward(activation1.backward(activation2.backward(dvalues)))));
 
         // Update weights and biases
         AdamOptimizer optimizer;
