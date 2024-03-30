@@ -46,7 +46,7 @@ dmatrix operator+ (const dmatrix& m, const drow& drow) noexcept{
         for(size_t j=0; j<m[0].size(); j++){
             result[i].push_back(m[i][j] + drow[i]);
         }
-    }
+    } return result;
 }
 
 // Output
@@ -98,8 +98,8 @@ struct DenseLayer {
     void initialize_momentum_cache(){
         weight_momentums.resize(m_weights[0].size(), drow(m_weights[0].size(), 0.));
         weight_cache.resize(m_weights[0].size(), drow(m_weights[0].size(), 0.));
-        bias_momentums.resize(m_weights[0].size(), drow(m_weights[0].size(), 0.));
-        bias_cache.resize(m_weights[0].size(), drow(m_weights[0].size(), 0.));
+        bias_momentums = drow(m_weights[0].size(), 0.);
+        bias_cache = drow(m_weights[0].size(), 0.);
     }
 };
 
