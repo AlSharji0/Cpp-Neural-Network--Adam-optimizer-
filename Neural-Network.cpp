@@ -201,6 +201,7 @@ private:
 public:
     drow forward(dmatrix& predictions, const dmatrix& ytrue){
         clipMatrix(predictions, 1e-7, 1. - 1e-7);
+        drow nlogp(predictions.size(), 0.);
         for(size_t i=0; i<predictions.size(); i++){
             correctp.push_back({});
             for(size_t j=0; j<predictions[0].size(); j++) correctp[i].push_back(predictions[i][j] * ytrue[i][j]);
@@ -209,11 +210,10 @@ public:
         } return nlogp;
     }
     dmatrix backward(const dmatrix& dvalues, const dmatrix& ytrue){
-            size_t samples = dvalues.size();
+            size_t num_samples = dvalues.size();
             for(size_t i=0; i<samples; i++){
                 for(size_t j=0; j<ytrue[0].size(); j++) dinputs[i].push_back(-ytrue[i][j] / dvalues[i][j]);
-                double sum = std::accumulate(dinputs[i].begin(), dinputs[i].end(), 0.0);
-                for(size_t j=0; j<dinputs[0].size(); j++) dinputs[i].push_back(dinputs[i][j] / samples);
+                for(size_t j=0; j<dinputs[0].size(); j++) dinputs[i].push_back(dinputs[i][j] / num_samples);
             } return dinputs;
         }
 };
@@ -234,11 +234,14 @@ private:
 
 public:
     void pre_update(){
+         iterations = 0;
         if(decay) current_learning_rate = learning_rate * (1. / (1. + decay * iterations));
     }
 
     void update(DenseLayer& DenseLayer){
         if(DenseLayer.weight_cache.empty()) DenseLayer.initialize_momentum_cache();
+        weight_momentums_corrected.resize(DenseLayer.weight_momentums.size(), drow(DenseLayer.weight_momentums[0].size(), 0.));
+        bias_momentums_corrected.resize(DenseLayer.bias_momentums.size(), 0.);
         for(size_t i=0; i<DenseLayer.m_weights.size(); i++){
             for(size_t j=0; j<DenseLayer.m_weights[0].size(); j++){
                 DenseLayer.weight_momentums[i][j] = beta_1 * DenseLayer.weight_momentums[i][j] + (1 - beta_1) * DenseLayer.dweights[i][j];
@@ -260,7 +263,8 @@ public:
     }
 };
 
-int main() {
+
+void preprocess_data(dmatrix& y) {
     // Convert labels to one-hot encoding
     dmatrix y_true;
     for (size_t i = 0; i < y.size(); ++i) {
@@ -269,7 +273,52 @@ int main() {
         one_hot[label] = 1.0;
         y_true.push_back(one_hot);
     }
+    y = y_true;
+}
 
+std::vector<DataPoint> generate_synthetic_data(int num_samples) {
+    std::vector<DataPoint> data;
+
+    // Define parameters for two classes
+    dmatrix class_means = {{2.0, 2.0}, {4.0, 4.0}};
+
+    dmatrix class_covs{
+    drow{1.0, 0.0}, drow{0.0, 1.0}, 
+    drow{1.0, 0.5}, drow{0.5, 1.0}
+    };
+
+    drow class_labels = {0, 1};
+
+    // Generate synthetic data
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::normal_distribution<> d(0, 1);
+
+    for (int i = 0; i < num_samples; ++i) {
+        int label_idx = i % 2;
+        drow features(2);
+        for (int j = 0; j < 2; ++j) {
+            features[j] = class_means[label_idx][j] + d(gen) * sqrt(class_covs[label_idx][j]);
+        }
+        DataPoint point;
+        point.features = features;
+        point.label = {class_labels[label_idx]};
+        data.push_back(point);
+    }
+
+    return data;
+}
+
+
+int main() {
+    std::vector<DataPoint> data = generate_synthetic_data(1000);
+    dmatrix X;
+    dmatrix y;
+    for (const auto& point : data) {
+        X.push_back(point.features);
+        y.push_back(point.label);
+    }
+    preprocess_data(y);
     // Initialize Neural Network layers
     DenseLayer layer1(2, 64);
     ReluActivation activation1;
@@ -284,13 +333,13 @@ int main() {
     int epochs = 1000;
     for (int epoch = 0; epoch < epochs; ++epoch) {
         // Forward pass
-        double current_loss = loss.calculate_data_loss(dvalue, y_true);
+        double current_loss = loss.calculate_data_loss(dvalue, y);
         if (epoch % 100 == 0) {
             std::cout << "Epoch " << epoch << ", Loss: " << current_loss << std::endl;
         }
 
         // Backward pass
-        dmatrix dvalues = loss.backward(dvalue, y_true);
+        dmatrix dvalues = loss.backward(dvalue, y);
         layer1.backward(activation1.backward(layer2.backward(activation1.backward(activation2.backward(dvalues)))));
 
         // Update weights and biases
@@ -299,5 +348,5 @@ int main() {
         optimizer.update(layer1);
         optimizer.update(layer2);
         optimizer.post_update();
-    }
+    } return 0;
 }
